@@ -15,6 +15,11 @@ pubnub = PubNub(pnconfig)
 
 CHANNEL = 'pubnub-twitter'
 
+class Tweet:
+
+    def __init__(self):
+        self.created_at = created_at
+
 def my_publish_callback(envelope, status):
     print('mpc')
     # Check whether request successfully completed or not
@@ -31,6 +36,7 @@ class MySubscribeCallback(SubscribeCallback):
         pass  # handle incoming presence data
 
     def status(self, pubnub, status):
+        print(status.category)
         if status.category == PNStatusCategory.PNUnexpectedDisconnectCategory:
             pass  # This event happens when radio / connectivity is lost
 
@@ -50,23 +56,26 @@ class MySubscribeCallback(SubscribeCallback):
 
     def message(self, pubnub, message):
         # Handle new message stored in message.message
-        print(message.message)
         bbox = message.message['place']['bounding_box']
-        # if bbox['type'] != 'Polygon':
         with open('debug.json', 'w') as f:
             json.dump(message.message, f)
-        center = coords_from_bounding_box(bbox)
-        print(center)
+        lat, lng = coords_from_message(message.message)
+        print(f'{lat},{lng}')
         os._exit(0)
 
-def coords_from_bounding_box(bbox):
+def coords_from_message(message):
+    if message['coordinates']:
+        assert message['coordinates']['type'] == 'Point'
+        lng, lat = message['coordinates']['coordinates']
+        return lat, lng
+    bbox = message['place']['bounding_box']
     if bbox['type'] == 'Polygon':
         assert len(bbox['coordinates']) == 1
         polygon_coords = bbox['coordinates'][0]
         lat_total, lng_total = 0, 0
-        for lat, lng in polygon_coords:
-            lat_total += lat
+        for lng, lat in polygon_coords:
             lng_total += lng
+            lat_total += lat
         point_count = len(polygon_coords)
         return lat_total / point_count, lng_total / point_count
 
