@@ -1,4 +1,5 @@
 import os
+import asyncio
 import statistics
 import json
 
@@ -14,6 +15,8 @@ pnconfig.uuid = 'myUniqueUUID'
 pubnub = PubNub(pnconfig)
 
 CHANNEL = 'pubnub-twitter'
+
+SLIDING_AVERAGE_TWEETS = []
 
 class Tweet:
 
@@ -36,7 +39,6 @@ class MySubscribeCallback(SubscribeCallback):
         pass  # handle incoming presence data
 
     def status(self, pubnub, status):
-        print(status.category)
         if status.category == PNStatusCategory.PNUnexpectedDisconnectCategory:
             pass  # This event happens when radio / connectivity is lost
 
@@ -59,8 +61,9 @@ class MySubscribeCallback(SubscribeCallback):
         bbox = message.message['place']['bounding_box']
         with open('debug.json', 'w') as f:
             json.dump(message.message, f)
-        lat, lng = coords_from_message(message.message)
-        print(f'{lat},{lng}')
+        # lat, lng
+        coords = coords_from_message(message.message)
+        print(f'{coords}')
         os._exit(0)
 
 def coords_from_message(message):
@@ -79,6 +82,10 @@ def coords_from_message(message):
         point_count = len(polygon_coords)
         return lat_total / point_count, lng_total / point_count
 
-pubnub.add_listener(MySubscribeCallback())
+async def main():
+    pubnub.add_listener(MySubscribeCallback())
+    pubnub.subscribe().channels(CHANNEL).execute()
 
-pubnub.subscribe().channels(CHANNEL).execute()
+if __name__ == "__main__":
+    asyncio.run(main())
+    # main()
