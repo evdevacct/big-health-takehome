@@ -1,8 +1,13 @@
 import os
-import asyncio
+import sys
+import argparse
+import requests
+import threading
+from datetime import datetime
+import dateutil.parser
 import statistics
 import json
-
+from concurrent.futures import ThreadPoolExecutor
 from pubnub.callbacks import SubscribeCallback
 from pubnub.enums import PNStatusCategory, PNOperationType
 from pubnub.pnconfiguration import PNConfiguration
@@ -10,21 +15,42 @@ from pubnub.pubnub import PubNub
 
 pnconfig = PNConfiguration()
 
-pnconfig.subscribe_key = 'sub-c-78806dd4-42a6-11e4-aed8-02ee2ddab7fe'
+with open(os.path.join('..', '.env.json')) as f:
+    CONFIG = json.load(f)
+pnconfig.subscribe_key = CONFIG['PUBNUB_SUB_KEY']
 pnconfig.uuid = 'myUniqueUUID'
 pubnub = PubNub(pnconfig)
+AVERAGES_FILENAME = os.path.join('..', 'averages.txt')
+TEMPS_FILENAME = os.path.join('..', 'temps.txt')
+
 
 CHANNEL = 'pubnub-twitter'
+FIRST_TWEET = True
+CALCULATOR = None
 
-SLIDING_AVERAGE_TWEETS = []
+class SlidingAverageCalculator:
 
-class Tweet:
+    def __init__(self, limit):
+        self.previous_vals = []
+        self.limit = limit
 
-    def __init__(self):
-        self.created_at = created_at
+    def add_temp(self, temp):
+        '''
+        Naive implementation. Assuming tweets are coming in order for now. In
+        the future could track previous averages so don't need to perform linear
+        sum operation each time.
+        '''
+        self.previous_vals.append(temp)
+        if len(self.previous_vals) > self.limit:
+            self.previous_vals.pop(0)
+        return statistics.mean(self.previous_vals)
+
+def create_args(args):
+    parser = argparse.ArgumentParser()
+    parser.add_argument('n', type=int, help='Number of tweets to average')
+    return parser.parse_args(args)
 
 def my_publish_callback(envelope, status):
-    print('mpc')
     # Check whether request successfully completed or not
     if not status.is_error():
         pass  # Message successfully published to specified channel.
@@ -61,7 +87,7 @@ class MySubscribeCallback(SubscribeCallback):
         new_tweet_pipeline(message.message, CALCULATOR)
 
 def new_tweet_pipeline(message, calculator):
-        # lat, lng
+    # lat, lng
     coords = coords_from_message(message)
     created_at = dateutil.parser.parse(message['created_at'])
     temp_f = get_weather(coords)
@@ -101,9 +127,19 @@ def write_output(temp, avg):
             avg_file.write('\n')
         temp_file.write(str(temp))
         avg_file.write(str(avg))
+
+def main():
+    # pass args to make function testable
+    args = create_args(sys.argv[1:])
+    if not 2 <= args.n <= 100:
+        raise RuntimeError('Expecting n between 2 and 100')
+    global CALCULATOR
+    CALCULATOR = SlidingAverageCalculator(args.n)
+    # Create stream files
+    with open(AVERAGES_FILENAME, 'w'), open(TEMPS_FILENAME, 'w'):
+        pass
     pubnub.add_listener(MySubscribeCallback())
     pubnub.subscribe().channels(CHANNEL).execute()
 
 if __name__ == "__main__":
-    asyncio.run(main())
-    # main()
+    main()
