@@ -82,7 +82,16 @@ def coords_from_message(message):
         point_count = len(polygon_coords)
         return lat_total / point_count, lng_total / point_count
 
-async def main():
+def write_output(temp, avg):
+    global FIRST_TWEET
+    first_tweet = FIRST_TWEET
+    FIRST_TWEET = False
+    with open(AVERAGES_FILENAME, 'a') as avg_file, open(TEMPS_FILENAME, 'a') as temp_file:
+        if not first_tweet:
+            temp_file.write('\n')
+            avg_file.write('\n')
+        temp_file.write(str(temp))
+        avg_file.write(str(avg))
     pubnub.add_listener(MySubscribeCallback())
     pubnub.subscribe().channels(CHANNEL).execute()
 
