@@ -2,8 +2,6 @@ import os
 import sys
 import argparse
 import requests
-import threading
-from datetime import datetime
 import dateutil.parser
 import statistics
 import json
