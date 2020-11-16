@@ -58,13 +58,22 @@ class MySubscribeCallback(SubscribeCallback):
 
     def message(self, pubnub, message):
         # Handle new message stored in message.message
-        bbox = message.message['place']['bounding_box']
-        with open('debug.json', 'w') as f:
-            json.dump(message.message, f)
+        new_tweet_pipeline(message.message, CALCULATOR)
+
+def new_tweet_pipeline(message, calculator):
         # lat, lng
-        coords = coords_from_message(message.message)
-        print(f'{coords}')
-        os._exit(0)
+    coords = coords_from_message(message)
+    created_at = dateutil.parser.parse(message['created_at'])
+    temp_f = get_weather(coords)
+    avg = calculator.add_temp(temp_f)
+    write_output(temp_f, avg)
+
+def get_weather(coords):
+    coords_str = f'{coords[0]},{coords[1]}'
+    resp = requests.get(f'https://api.weatherapi.com/v1/current.json?key={CONFIG["WEATHER_API_KEY"]}&q={coords_str}')
+    body = resp.json()
+    temp = body['current']['temp_f']
+    return temp
 
 def coords_from_message(message):
     if message['coordinates']:
